@@ -2,9 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Character, CharacterListResponse } from "@/types/character";
+import { Character } from "@/types/character";
+import { getCharacterById, getCharacterCount } from "@/lib/rickandmorty";
 
-const API = "https://rickandmortyapi.com/api/character";
 const TEN_DAYS = 864000; // 60 * 60 * 24 * 10 segundos
 
 // ISR: la página se regenera como máximo cada 10 días
@@ -15,22 +15,20 @@ interface CharacterPageProps {
 }
 
 async function getCharacter(id: string): Promise<Character> {
-  // Reintenta si la API responde 429 (demasiadas peticiones durante el build)
-  for (let intento = 0; intento < 5; intento++) {    const res = await fetch(`${API}/${id}`, { next: { revalidate: TEN_DAYS } });
-    if (res.status === 404) notFound();
-    if (res.ok) return res.json();
-    if (res.status !== 429) break;
-    await new Promise((r) => setTimeout(r, 1000 * (intento + 1)));
-  }
-  throw new Error("Error al cargar el personaje");
+  const numId = Number(id);
+  if (!Number.isInteger(numId) || numId < 1) notFound();
+
+  const character = await getCharacterById(numId, { next: { revalidate: TEN_DAYS } });
+  if (!character) notFound(); // muestra not-found.tsx
+
+  return character;
 }
 
 // SSG: genera una ruta estática por cada Id del total de personajes
 export async function generateStaticParams() {
-  const res = await fetch(API);
-  const data: CharacterListResponse = await res.json();
+  const count = await getCharacterCount({ next: { revalidate: TEN_DAYS } });
 
-  return Array.from({ length: data.info.count }, (_, i) => ({
+  return Array.from({ length: count }, (_, i) => ({
     id: String(i + 1),
   }));
 }

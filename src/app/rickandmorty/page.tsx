@@ -1,42 +1,14 @@
-import { CharacterListResponse, SimpleCharacter } from "@/types/character";
+import { SimpleCharacter } from "@/types/character";
 import CharacterSearch from "@/components/CharacterSearch";
-
-const API = "https://rickandmortyapi.com/api/character";
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// force-cache: la respuesta se guarda en caché y se reutiliza (SSG)
-async function getPage(url: string): Promise<CharacterListResponse> {
-  // Reintenta si la API responde 429 (demasiadas peticiones seguidas)
-  for (let intento = 0; intento < 5; intento++) {
-    const res = await fetch(url, { cache: "force-cache" });
-    if (res.ok) return res.json();
-    if (res.status !== 429) {
-      throw new Error(`Error al cargar personajes (código ${res.status})`);
-    }
-    await wait(1000 * (intento + 1));
-  }
-  throw new Error("Error al cargar personajes (la API está saturada)");
-}
-
-// Recorre las páginas una por una usando info.next
-async function getAllCharacters(): Promise<SimpleCharacter[]> {
-  const characters: SimpleCharacter[] = [];
-  let url: string | null = API;
-
-  while (url) {
-    const data: CharacterListResponse = await getPage(url);
-    data.results.forEach(({ id, name, status, species, gender, image }) =>
-      characters.push({ id, name, status, species, gender, image })
-    );
-    url = data.info.next;
-  }
-
-  return characters;
-}
+import { getAllCharacters } from "@/lib/rickandmorty";
 
 export default async function RickAndMortyHome() {
-  const characters = await getAllCharacters();
+  // force-cache: la respuesta se guarda en caché y se reutiliza (SSG)
+  const all = await getAllCharacters({ cache: "force-cache" });
+
+  const characters: SimpleCharacter[] = all.map(
+    ({ id, name, status, species, gender, image }) => ({ id, name, status, species, gender, image })
+  );
 
   return (
     <main className="max-w-7xl mx-auto p-6 md:p-8">
